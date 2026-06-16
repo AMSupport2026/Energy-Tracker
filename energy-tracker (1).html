@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<title>Energy Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg-secondary: #f5f5f4; --bg-tertiary: #f0efed;
+    --text: #1a1a1a; --text-secondary: #6b7280; --text-tertiary: #9ca3af;
+    --border: rgba(0,0,0,0.12); --border-med: rgba(0,0,0,0.2);
+    --radius-md: 8px; --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --bg-secondary: #2c2c2e; --bg-tertiary: #3a3a3c;
+      --text: #f2f2f7; --text-secondary: #aeaeb2; --text-tertiary: #636366;
+      --border: rgba(255,255,255,0.12); --border-med: rgba(255,255,255,0.2);
+    }
+  }
+  body { font-family: var(--font); background: var(--bg-secondary); color: var(--text); min-height: 100vh; max-width: 480px; margin: 0 auto; }
+  .app-header { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 16px 16px 0; position: sticky; top: 0; z-index: 20; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .app-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .sync-status { font-size: 11px; color: var(--text-tertiary); display: flex; align-items: center; gap: 4px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #9ca3af; }
+  .sync-dot.synced { background: #3b6d11; }
+  .sync-dot.syncing { background: #ba7517; }
+  .sync-dot.error { background: #a32d2d; }
+  .tabs { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; padding: 8px 14px; font-size: 13px; font-weight: 400; color: var(--text-secondary); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color 0.15s; }
+  .tab.active { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
+  .main { padding: 12px; }
+  .summary-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .sum-pill { text-align: center; padding: 10px 8px; border-radius: var(--radius-md); font-size: 12px; font-weight: 500; }
+  .sum-gained { background: #eaf3de; color: #27500a; }
+  .sum-drained { background: #fcebeb; color: #791f1f; }
+  @media (prefers-color-scheme: dark) {
+    .sum-gained { background: #1a3010; color: #9cd46a; }
+    .sum-drained { background: #3a1010; color: #f09595; }
+  }
+  .sum-num { font-size: 22px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .entries { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .entry-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 12px; }
+  .entry-header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .entry-num { font-size: 11px; color: var(--text-tertiary); font-weight: 500; min-width: 20px; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge-business { background: #e6f1fb; color: #0c447c; }
+  .badge-personal { background: #eeedfe; color: #3c3489; }
+  .badge-gained { background: #eaf3de; color: #27500a; }
+  .badge-drained { background: #fcebeb; color: #791f1f; }
+  @media (prefers-color-scheme: dark) {
+    .badge-business { background: #0c2a4a; color: #85b7eb; }
+    .badge-personal { background: #1e1640; color: #afa9ec; }
+    .badge-gained { background: #1a3010; color: #9cd46a; }
+    .badge-drained { background: #3a1010; color: #f09595; }
+  }
+  .del-btn { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+  .entry-note { font-size: 14px; color: var(--text); line-height: 1.55; padding-top: 8px; border-top: 0.5px solid var(--border); }
+  .entry-time { font-size: 11px; color: var(--text-tertiary); margin-top: 6px; }
+  .add-form { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .form-label { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; display: block; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  select, textarea { width: 100%; background: var(--bg-secondary); color: var(--text); border: 0.5px solid var(--border); border-radius: var(--radius-md); font-family: var(--font); font-size: 14px; }
+  select { height: 40px; padding: 0 12px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  textarea { padding: 10px 12px; resize: none; min-height: 76px; line-height: 1.5; }
+  select:focus, textarea:focus { outline: none; border-color: var(--border-med); }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-primary { flex: 1; height: 42px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: -0.2px; font-family: var(--font); transition: opacity 0.15s; }
+  .btn-primary:active { opacity: 0.8; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { height: 42px; padding: 0 16px; background: none; border: 0.5px solid var(--border-med); border-radius: var(--radius-md); font-size: 14px; color: var(--text-secondary); cursor: pointer; font-family: var(--font); white-space: nowrap; }
+  .export-section { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px; margin-bottom: 12px; }
+  .export-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .export-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-export { flex: 1; min-width: 120px; height: 40px; background: none; border: 0.5px solid var(--border-med); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; font-family: var(--font); }
+  .empty { text-align: center; padding: 36px 16px; color: var(--text-tertiary); font-size: 14px; line-height: 1.6; }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+  .loading { text-align: center; padding: 36px 16px; color: var(--text-tertiary); font-size: 14px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 99; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-row">
+    <div class="app-title">Energy Tracker</div>
+    <div class="sync-status">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-label">Loading…</span>
+    </div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="main" id="main"><div class="loading">Loading your entries…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const API = 'https://script.google.com/macros/s/AKfycbySBltwsteQluA4KMrp_E0-uFzWJDmAy535KQ0y8xveLKFNdHMrQPH7ISkUqCzHrQ9c/exec';
+
+let currentDay = 0;
+let allEntries = [];
+let loading = false;
+
+function setSyncStatus(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot' + (state ? ' ' + state : '');
+  lbl.textContent = label;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function fetchEntries() {
+  setSyncStatus('syncing', 'Syncing…');
+  try {
+    const res = await fetch(API + '?t=' + Date.now());
+    const data = await res.json();
+    allEntries = data.entries || [];
+    setSyncStatus('synced', 'Synced');
+  } catch(e) {
+    setSyncStatus('error', 'Offline');
+  }
+  renderTabs();
+  renderMain();
+}
+
+async function addEntry() {
+  const type = document.getElementById('sel-type').value;
+  const energy = document.getElementById('sel-energy').value;
+  const note = document.getElementById('inp-note').value.trim();
+  if (!note) { document.getElementById('inp-note').focus(); return; }
+
+  const btn = document.getElementById('btn-add');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  setSyncStatus('syncing', 'Saving…');
+
+  const entry = { action: 'add', day: DAYS[currentDay], type, energy, note, ts: Date.now() };
+
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      body: JSON.stringify(entry),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const data = await res.json();
+    allEntries.push({ ...entry, id: data.id });
+    setSyncStatus('synced', 'Synced');
+    toast('Entry saved');
+    renderMain();
+  } catch(e) {
+    setSyncStatus('error', 'Failed to save');
+    toast('Save failed — check connection');
+    btn.disabled = false;
+    btn.textContent = 'Add entry';
+  }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  setSyncStatus('syncing', 'Deleting…');
+  try {
+    await fetch(API, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', id }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    allEntries = allEntries.filter(e => String(e.id) !== String(id));
+    setSyncStatus('synced', 'Synced');
+    toast('Entry deleted');
+    renderMain();
+  } catch(e) {
+    setSyncStatus('error', 'Delete failed');
+    toast('Delete failed — check connection');
+  }
+}
+
+function dayEntries() {
+  return allEntries.filter(e => e.day === DAYS[currentDay]);
+}
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = DAYS.map((d,i) =>
+    `<button class="tab${currentDay===i?' active':''}" onclick="switchDay(${i})">${d}</button>`
+  ).join('');
+}
+
+function switchDay(i) {
+  currentDay = i;
+  renderTabs();
+  renderMain();
+}
+
+function renderMain() {
+  const entries = dayEntries();
+  const gained = entries.filter(e => e.energy === 'gained').length;
+  const drained = entries.filter(e => e.energy === 'drained').length;
+  let html = '';
+
+  if (entries.length > 0) {
+    html += `<div class="summary-bar">
+      <div class="sum-pill sum-gained"><span class="sum-num">${gained}</span>energy gained</div>
+      <div class="sum-pill sum-drained"><span class="sum-num">${drained}</span>energy drained</div>
+    </div><div class="entries">`;
+    entries.forEach((e, idx) => {
+      html += `<div class="entry-card">
+        <div class="entry-header">
+          <span class="entry-num">${idx+1}</span>
+          <span class="badge badge-${e.type}">${e.type}</span>
+          <span class="badge badge-${e.energy}">${e.energy === 'gained' ? '⚡ gained' : '🔋 drained'}</span>
+          <button class="del-btn" onclick="deleteEntry('${e.id}')" aria-label="Delete">×</button>
+        </div>
+        ${e.note ? `<div class="entry-note">${escHtml(e.note)}</div>` : ''}
+        ${e.ts ? `<div class="entry-time">${new Date(Number(e.ts)).toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div class="empty"><div class="empty-icon">⚡</div>No entries for ${DAYS[currentDay]} yet.<br>Log what gave or drained your energy below.</div>`;
+  }
+
+  html += `<div class="add-form">
+    <div class="row2">
+      <div><label class="form-label">Type</label>
+        <select id="sel-type"><option value="business">Business</option><option value="personal">Personal</option></select>
+      </div>
+      <div><label class="form-label">Energy</label>
+        <select id="sel-energy"><option value="gained">⚡ Gained</option><option value="drained">🔋 Drained</option></select>
+      </div>
+    </div>
+    <div><label class="form-label">Notes</label>
+      <textarea id="inp-note" placeholder="What was it? Be specific…"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="btn-add" onclick="addEntry()">Add entry</button>
+      <button class="btn-secondary" onclick="fetchEntries()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="export-section">
+    <div class="export-title">Export</div>
+    <div class="export-btn-row">
+      <button class="btn-export" onclick="exportCSV('day')">📄 This day</button>
+      <button class="btn-export" onclick="exportCSV('week')">📊 Full week</button>
+    </div>
+  </div>`;
+
+  document.getElementById('main').innerHTML = html;
+  const ta = document.getElementById('inp-note');
+  if (ta) ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addEntry(); });
+}
+
+function exportCSV(scope) {
+  const rows = [['Day','Type','Energy','Notes','Timestamp']];
+  const data = scope === 'day' ? dayEntries() : allEntries;
+  data.forEach(e => {
+    rows.push([e.day, e.type, e.energy, '"' + (e.note||'').replace(/"/g,'""') + '"', e.ts ? new Date(Number(e.ts)).toLocaleString() : '']);
+  });
+  if (rows.length === 1) { alert('No entries to export.'); return; }
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `energy-tracker-${scope}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+fetchEntries();
+</script>
+</body>
+</html>
